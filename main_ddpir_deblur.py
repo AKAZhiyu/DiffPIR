@@ -39,11 +39,11 @@ def main():
     iter_num_U              = 1                 # set number of inner iterations, default: 1
     skip                    = num_train_timesteps//iter_num     # skip interval
 
-    show_img                = False             # default: False
+    show_img                = True             # default: False
     save_L                  = True             # save LR image
     save_E                  = True              # save estimated image
-    save_LEH                = False             # save zoomed LR, E and H images
-    save_progressive        = False             # save generation process
+    save_LEH                = True             # save zoomed LR, E and H images
+    save_progressive        = True             # save generation process
     border                  = 0
 	
     sigma                   = max(0.001,noise_level_img)  # noise level associated with condition y
@@ -74,7 +74,12 @@ def main():
     results                 = os.path.join(cwd, 'results')      # fixed
     result_name             = f'{testset_name}_{task_current}_{generate_mode}_{model_name}_sigma{noise_level_img}_NFE{iter_num}_eta{eta}_zeta{zeta}_lambda{lambda_}_blurmode{blur_mode}'
     model_path              = os.path.join(model_zoo, model_name+'.pt')
-    device                  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    device = torch.device(
+        'cuda' if torch.cuda.is_available() else
+        'mps' if torch.backends.mps.is_available() else
+        'cpu'
+    )
     torch.cuda.empty_cache()
 
     # noise schedule 
@@ -233,7 +238,10 @@ def main():
 
             k_tensor = util.single2tensor4(np.expand_dims(k, 2)).to(device)
 
-            FB, FBC, F2B, FBFy = sr.pre_calculate(y, k_tensor, sf)
+            if device.type == 'mps':
+                FB, FBC, F2B, FBFy = sr.pre_calculate(y.to(torch.device('cpu')), k_tensor.to(torch.device('cpu')), sf)
+            else:
+                FB, FBC, F2B, FBFy = sr.pre_calculate(y, k_tensor, sf)
 
             # --------------------------------
             # (4) main iterations
@@ -289,7 +297,10 @@ def main():
                                     # when noise level less than given image noise, skip
                                     if i < num_train_timesteps-noise_model_t: 
                                         x0_p = x0 / 2 + 0.5
-                                        x0_p = sr.data_solution(x0_p.float(), FB, FBC, F2B, FBFy, tau, sf)
+                                        if device.type == 'mps':
+                                            x0_p = sr.data_solution(x0_p.float().to(torch.device('cpu')), FB, FBC, F2B, FBFy, tau.to(torch.device('cpu')), sf).to(device)
+                                        else:
+                                            x0_p = sr.data_solution(x0_p.float(), FB, FBC, F2B, FBFy, tau, sf)
                                         x0_p = x0_p * 2 - 1
                                         # effective x0
                                         x0 = x0 + guidance_scale * (x0_p-x0)

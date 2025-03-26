@@ -53,7 +53,7 @@ def surf(Z):
 #    ax.view_init(elev=45, azim=45)
 #    ax.set_xlabel("x")
 #    plt.title(" ")
-    plt.tight_layout(0.9)
+    plt.tight_layout()
     plt.show()
 
 

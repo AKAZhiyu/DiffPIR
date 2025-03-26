@@ -40,10 +40,10 @@ def main():
     skip                    = num_train_timesteps//iter_num     # skip interval
     sr_mode                 = 'blur'            # 'blur', 'cubic' mode of sr up/down sampling
 
-    show_img                = False             # default: False
+    show_img                = True             # default: False
     save_L                  = True              # save LR image
-    save_E                  = False             # save estimated image
-    save_LEH                = False             # save zoomed LR, E and H images
+    save_E                  = True             # save estimated image
+    save_LEH                = True             # save zoomed LR, E and H images
     save_progressive        = True              # save generation process
 
     sigma                   = max(0.001,noise_level_img)  # noise level associated with condition y
@@ -71,7 +71,11 @@ def main():
     results                 = os.path.join(cwd, 'results')      # fixed
     result_name             = f'{testset_name}_{task_current}_{generate_mode}_{sr_mode}{str(test_sf)}_{model_name}_sigma{noise_level_img}_NFE{iter_num}_eta{eta}_zeta{zeta}_lambda{lambda_}'
     model_path              = os.path.join(model_zoo, model_name+'.pt')
-    device                  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(
+        'cuda' if torch.cuda.is_available() else
+        'mps' if torch.backends.mps.is_available() else
+        'cpu'
+    )
     torch.cuda.empty_cache()
 
     calc_LPIPS              = True
@@ -253,9 +257,13 @@ def main():
                     # x = torch.randn_like(x)
                     x = sqrt_alphas_cumprod[t_start] * (2*x-1) + sqrt_1m_alphas_cumprod[t_start] * torch.randn_like(x)
 
-                    k_tensor = util.single2tensor4(np.expand_dims(k, 2)).to(device) 
+                    k_tensor = util.single2tensor4(np.expand_dims(k, 2)).to(device)
 
-                    FB, FBC, F2B, FBFy = sr.pre_calculate(y, k_tensor, sf)
+                    if device.type == 'mps':
+                        FB, FBC, F2B, FBFy = sr.pre_calculate(y.to(torch.device('cpu')),
+                                                              k_tensor.to(torch.device('cpu')), sf)
+                    else:
+                        FB, FBC, F2B, FBFy = sr.pre_calculate(y, k_tensor, sf)
 
                     # --------------------------------
                     # (4) main iterations
@@ -314,7 +322,15 @@ def main():
                                                 if sr_mode == 'blur':
                                                     tau = rhos[t_i].float().repeat(1, 1, 1, 1)
                                                     x0_p = x0 / 2 + 0.5
-                                                    x0_p = sr.data_solution(x0_p.float(), FB, FBC, F2B, FBFy, tau, sf)
+                                                    if device.type == 'mps':
+                                                        x0_p = sr.data_solution(x0_p.float().to(torch.device('cpu')),
+                                                                                FB, FBC, F2B, FBFy,
+                                                                                tau.to(torch.device('cpu')), sf).to(
+                                                            device)
+                                                    else:
+                                                        x0_p = sr.data_solution(x0_p.float(), FB, FBC, F2B, FBFy, tau,
+                                                                                sf)
+                                                    # x0_p = sr.data_solution(x0_p.float(), FB, FBC, F2B, FBFy, tau, sf)
                                                     x0_p = x0_p * 2 - 1
                                                     # effective x0
                                                     x0 = x0 + guidance_scale * (x0_p-x0)
@@ -479,7 +495,8 @@ def main():
                 return test_results_ave
 
             # experiments
-            lambdas = [lambda_*i for i in range(2,13)]
+            # lambdas = [lambda_*i for i in range(12,13)]
+            lambdas = [lambda_ * i for i in range(2, 3)]
             for lambda_ in lambdas:
                 #for zeta_i in [zeta*i for i in range(2,4)]:
                 for zeta_i in [0.25]:

@@ -31,7 +31,7 @@ def main():
     model_name              = 'diffusion_ffhq_10m'  # 256x256_diffusion_uncond, diffusion_ffhq_10m; set diffusino model
     testset_name            = 'demo_test'        # set testing set, 'imagenet_val' | 'ffhq_val'
     num_train_timesteps     = 1000
-    iter_num                = 20              # set number of iterations
+    iter_num                = 50              # set number of iterations
     iter_num_U              = 1                 # set number of inner iterations, default: 1
     skip                    = num_train_timesteps//iter_num     # skip interval
 
@@ -41,12 +41,12 @@ def main():
     mask_len_range          = [128, 129]
     mask_prob_range         = [0.5, 0.5]
 
-    show_img                = False             # default: False
-    save_L                  = False             # save LR image
+    show_img                = True             # default: False
+    save_L                  = True             # save LR image
     save_E                  = True              # save estimated image
-    save_LEH                = False             # save zoomed LR, E and H images
-    save_progressive        = False             # save generation process
-    save_progressive_mask   = False             # save generation process
+    save_LEH                = True             # save zoomed LR, E and H images
+    save_progressive        = True             # save generation process
+    save_progressive_mask   = True             # save generation process
 
     sigma                   = max(0.001,noise_level_img)  # noise level associated with condition y
     lambda_                 = 1.                # key parameter lambda
@@ -69,7 +69,11 @@ def main():
     results                 = os.path.join(cwd, 'results')      # fixed
     result_name             = f'{testset_name}_{task_current}_{generate_mode}_{mask_type}_{model_name}_sigma{noise_level_img}_NFE{iter_num}_eta{eta}_zeta{zeta}_lambda{lambda_}'
     model_path              = os.path.join(model_zoo, model_name+'.pt')
-    device                  = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(
+        'cuda' if torch.cuda.is_available() else
+        'mps' if torch.backends.mps.is_available() else
+        'cpu'
+    )
     torch.cuda.empty_cache()
 
     calc_LPIPS              = True
@@ -253,6 +257,8 @@ def main():
                         x = utils_model.model_fn(x, noise_level=curr_sigma*255, model_out_type=model_out_type, \
                                 model_diffusion=model, diffusion=diffusion, ddim_sample=ddim_sample, alphas_cumprod=alphas_cumprod)
                     # x = utils_model.test_mode(model_fn, x, mode=0, refield=32, min_size=256, modulo=16, noise_level=sigmas[i].cpu().numpy()*255)
+
+
                     # --------------------------------
                     # step 2, closed-form solution
                     # --------------------------------
@@ -263,7 +269,7 @@ def main():
                         if sub_1_analytic:
                             if model_out_type == 'pred_xstart':
                                 # when noise level less than given image noise, skip
-                                if i < num_train_timesteps-noise_model_t:    
+                                if i < num_train_timesteps-noise_model_t:
                                     x0_p = (mask*y + rhos[t_i].float()*x0).div(mask+rhos[t_i])
                                     x0 = x0 + guidance_scale * (x0_p-x0)
                                 else:
