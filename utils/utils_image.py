@@ -83,6 +83,17 @@ def _get_paths_from_images(path):
     return images
 
 
+def get_single_image_path(image_path: str) -> str:
+    if image_path is None:
+        raise AssertionError("Image path cannot be None")
+
+    assert os.path.isfile(image_path), f"'{image_path}' is not a valid file"
+
+    assert is_image_file(image_path), f"'{image_path}' is not a valid image file"
+
+    return image_path
+
+
 '''
 # =======================================
 # makedir
