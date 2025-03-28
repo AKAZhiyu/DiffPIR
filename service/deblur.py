@@ -25,18 +25,26 @@ from guided_diffusion.script_util import (
 )
 
 
-def deblur_service_demo(
-                   blur_mode='motion',
-                   # blur_mode='Gaussian',
-                   input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/69037.png',
-                   output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results'):
+def deblur_service(
+                   # blur_mode='motion',
+                   blur_mode='Gaussian',
+                   # input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/69037.png',
+                   # input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/gaussian_blur_size21_std1.5/69037_LR.png',
+                   input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/motionblur_size21_std0.5/69929_LR.png',
+                   output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results',
+                   is_blurred=True,
+                   custom_kernel_size=21,
+                   custom_kernel_std=1.5
+                   # custom_kernel_std=0.5
+):
 
     path_to_return = {}
     # ----------------------------------------
     # Preparation
     # ----------------------------------------
 
-    noise_level_img = 12.75 / 255.0  # set AWGN noise level for LR image, default: 0
+    # noise_level_img = 12.75 / 255.0  # set AWGN noise level for LR image, default: 0
+    noise_level_img = 0
     noise_level_model = noise_level_img  # set noise level of model, default: 0
     model_name = 'diffusion_ffhq_10m'  # diffusion_ffhq_10m, 256x256_diffusion_uncond; set diffusino model
     # testset_name = 'demo_test'  # set testing set,  'imagenet_val' | 'ffhq_val'
@@ -69,8 +77,12 @@ def deblur_service_demo(
     use_DIY_kernel = True
     # blur_mode = 'motion'  # Gaussian; motion
     # kernel_size = 61
-    kernel_size = 11
-    kernel_std = 1.5 if blur_mode == 'Gaussian' else 0.3
+    if not is_blurred:
+        kernel_size = 21
+        kernel_std = 1.5 if blur_mode == 'Gaussian' else 0.3
+    else:
+        kernel_size = custom_kernel_size
+        kernel_std = custom_kernel_std
 
     sf = 1
     task_current = 'deblur'
@@ -204,18 +216,25 @@ def deblur_service_demo(
         # --------------------------------
 
         img_name, ext = os.path.splitext(os.path.basename(img))
+
         img_H = util.imread_uint(img, n_channels=n_channels)
         img_H = util.modcrop(img_H, 8)  # modcrop
+        if not is_blurred:
 
-        # mode='wrap' is important for analytical solution
-        img_L = ndimage.convolve(img_H, np.expand_dims(k, axis=2), mode='wrap')
-        util.imshow(img_L) if show_img else None
-        img_L = util.uint2single(img_L)
+            # mode='wrap' is important for analytical solution
+            img_L = ndimage.convolve(img_H, np.expand_dims(k, axis=2), mode='wrap')
+            util.imshow(img_L) if show_img else None
+            img_L = util.uint2single(img_L)
 
-        np.random.seed(seed=0)  # for reproducibility
-        img_L = img_L * 2 - 1
-        img_L += np.random.normal(0, noise_level_img * 2, img_L.shape)  # add AWGN
-        img_L = img_L / 2 + 0.5
+            np.random.seed(seed=0)  # for reproducibility
+            img_L = img_L * 2 - 1
+            img_L += np.random.normal(0, noise_level_img * 2, img_L.shape)  # add AWGN
+            img_L = img_L / 2 + 0.5
+
+        else:
+            img_L = util.imread_uint(img, n_channels=n_channels)
+            img_L = util.modcrop(img_L, 8)  # 可选，确保尺寸兼容
+            img_L = util.uint2single(img_L)
 
         # --------------------------------
         # (2) get rhos and sigmas
@@ -507,5 +526,5 @@ def deblur_service_demo(
     return path_to_return
 
 if __name__ == '__main__':
-    result_path = deblur_service_demo()
+    result_path = deblur_service()
     print(result_path)

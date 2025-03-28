@@ -30,7 +30,8 @@ def main():
     # Preparation
     # ----------------------------------------
 
-    noise_level_img         = 12.75/255.0           # set AWGN noise level for LR image, default: 0
+    # noise_level_img         = 12.75/255.0           # set AWGN noise level for LR image, default: 0
+    noise_level_img = 0
     noise_level_model       = noise_level_img       # set noise level of model, default: 0
     model_name              = 'diffusion_ffhq_10m'  # diffusion_ffhq_10m, 256x256_diffusion_uncond; set diffusino model
     testset_name            = 'demo_test'            # set testing set,  'imagenet_val' | 'ffhq_val'
@@ -39,7 +40,7 @@ def main():
     iter_num_U              = 1                 # set number of inner iterations, default: 1
     skip                    = num_train_timesteps//iter_num     # skip interval
 
-    show_img                = True             # default: False
+    show_img                = False             # default: False
     save_L                  = True             # save LR image
     save_E                  = True              # save estimated image
     save_LEH                = True             # save zoomed LR, E and H images
@@ -59,11 +60,11 @@ def main():
     zeta                    = 0.1  
     guidance_scale          = 1.0   
 
-    calc_LPIPS              = True
+    calc_LPIPS              = False
     use_DIY_kernel          = True
-    blur_mode               = 'Gaussian'          # Gaussian; motion      
-    kernel_size             = 61
-    kernel_std              = 3.0 if blur_mode == 'Gaussian' else 0.5
+    blur_mode               = 'motion'          # Gaussian; motion
+    kernel_size             = 21
+    kernel_std              = 1.5 if blur_mode == 'Gaussian' else 0.5
 
     sf                      = 1
     task_current            = 'deblur'          
@@ -166,7 +167,8 @@ def main():
             if use_DIY_kernel:
                 np.random.seed(seed=idx*10)  # for reproducibility of blur kernel for each image
                 if blur_mode == 'Gaussian':
-                    kernel_std_i = kernel_std * np.abs(np.random.rand()*2+1)
+                    # kernel_std_i = kernel_std * np.abs(np.random.rand()*2+1)
+                    kernel_std_i = kernel_std
                     kernel = GaussialBlurOperator(kernel_size=kernel_size, intensity=kernel_std_i, device=device)
                 elif blur_mode == 'motion':
                     kernel = MotionBlurOperator(kernel_size=kernel_size, intensity=kernel_std, device=device)
@@ -432,7 +434,7 @@ def main():
                 util.imsave(np.concatenate([img_I, img_E, img_H], axis=1), os.path.join(E_path, img_name+'_LEH'+ext))
 
             if save_L:
-                util.imsave(util.single2uint(img_L), os.path.join(E_path, img_name+'_LR'+ext))
+                util.imsave(img_L, os.path.join(E_path, img_name+'_LR'+ext))
         
         # --------------------------------
         # Average PSNR and LPIPS

@@ -37,9 +37,9 @@ def main():
 
     mask_name               = 'gt_keep_masks/face/000000.png'   # mask path for loading mask img
     load_mask               = False
-    mask_type               = 'box'  #['box', 'random', 'both', 'extreme']
-    # mask_len_range          = [128, 129]
-    mask_len_range = [32, 33]
+    mask_type               = 'random'  #['box', 'random', 'both', 'extreme']
+    mask_len_range          = [64, 65]
+    # mask_len_range = [32, 33]
     mask_prob_range         = [0.5, 0.5]
 
     show_img                = True             # default: False

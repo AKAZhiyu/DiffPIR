@@ -30,7 +30,7 @@ def main():
     # Preparation
     # ----------------------------------------
 
-    noise_level_img         = 12.75/255.0       # set AWGN noise level for LR image, default: 0
+    noise_level_img         = 0/255.0       # set AWGN noise level for LR image, default: 0
     noise_level_model       = noise_level_img   # set noise level of model, default: 0
     model_name              = 'diffusion_ffhq_10m'  # diffusion_ffhq_10m, 256x256_diffusion_uncond; set diffusino model
     testset_name            = 'demo_test'    # set testing set,  'imagenet_val' | 'ffhq_val'
@@ -40,7 +40,7 @@ def main():
     skip                    = num_train_timesteps//iter_num     # skip interval
     sr_mode                 = 'blur'            # 'blur', 'cubic' mode of sr up/down sampling
 
-    show_img                = True             # default: False
+    show_img                = False             # default: False
     save_L                  = True              # save LR image
     save_E                  = True             # save estimated image
     save_LEH                = True             # save zoomed LR, E and H images

@@ -25,9 +25,12 @@ from guided_diffusion.script_util import (
 )
 
 
-def sr_service_demo(
-               input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/69037.png',
-               output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results'):
+def sr_service(
+               input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/4_sr/mingrui_x4_k2_LR.png',
+               output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results',
+               is_low_resolution=True,
+               scale_factor=4
+):
 
 
     path_to_return = {}
@@ -35,7 +38,7 @@ def sr_service_demo(
     # Preparation
     # ----------------------------------------
 
-    noise_level_img = 12.75 / 255.0  # set AWGN noise level for LR image, default: 0
+    noise_level_img = 0 / 255.0  # set AWGN noise level for LR image, default: 0
     noise_level_model = noise_level_img  # set noise level of model, default: 0
     model_name = 'diffusion_ffhq_10m'  # diffusion_ffhq_10m, 256x256_diffusion_uncond; set diffusino model
     # testset_name = 'demo_test'  # set testing set,  'imagenet_val' | 'ffhq_val'
@@ -45,7 +48,7 @@ def sr_service_demo(
     skip = num_train_timesteps // iter_num  # skip interval
     sr_mode = 'blur'  # 'blur', 'cubic' mode of sr up/down sampling
 
-    show_img = False  # default: False
+    show_img = True  # default: False
     save_L = True  # save LR image
     save_E = True  # save estimated image
     save_LEH = True  # save zoomed LR, E and H images
@@ -64,7 +67,7 @@ def sr_service_demo(
     zeta = 0.1
     guidance_scale = 1.0
 
-    test_sf = [4]  # set scale factor, default: [2, 3, 4], [2], [3], [4]
+    test_sf = [scale_factor]  # set scale factor, default: [2, 3, 4], [2], [3], [4]
     inIter = 1  # iter num for sr solution: 4-6
     gamma = 1 / 100  # coef for iterative sr solver 20steps: 0.05-0.10 for zeta=1, 0.09-0.13 for zeta=0
     classical_degradation = False  # set classical degradation or bicubic degradation
@@ -168,8 +171,6 @@ def sr_service_demo(
         kernels = hdf5storage.loadmat(os.path.join(cwd, 'kernels', 'kernels_bicubicx234.mat'))['kernels']
 
     test_results_ave = OrderedDict()
-    test_results_ave['psnr_sf_k'] = []
-    test_results_ave['psnr_y_sf_k'] = []
     if calc_LPIPS:
         import lpips
         loss_fn_vgg = lpips.LPIPS(net='vgg').to(device)
@@ -193,8 +194,6 @@ def sr_service_demo(
                     'eta:{:.3f}, zeta:{:.3f}, lambda:{:.3f}, inIter:{:.3f}, gamma:{:.3f}, guidance_scale:{:.2f}'.format(
                         eta, zeta, lambda_, inIter, gamma, guidance_scale))
                 test_results = OrderedDict()
-                test_results['psnr'] = []
-                test_results['psnr_y'] = []
                 if calc_LPIPS:
                     test_results['lpips'] = []
 
@@ -206,28 +205,34 @@ def sr_service_demo(
                 # --------------------------------
 
                 img_name, ext = os.path.splitext(os.path.basename(img))
+
                 img_H = util.imread_uint(img, n_channels=n_channels)
                 img_H = util.modcrop(img_H, sf)  # modcrop
 
-                if sr_mode == 'blur':
-                    if classical_degradation:
-                        img_L = sr.classical_degradation(img_H, k, sf)
-                        util.imshow(img_L) if show_img else None
-                        img_L = util.uint2single(img_L)
-                    else:
-                        img_L = util.imresize_np(util.uint2single(img_H), 1 / sf)
-                elif sr_mode == 'cubic':
-                    img_H_tensor = np.transpose(img_H, (2, 0, 1))
-                    img_H_tensor = torch.from_numpy(img_H_tensor)[None, :, :, :].to(device)
-                    img_H_tensor = img_H_tensor / 255
-                    # set up resizers
-                    up_sample = partial(F.interpolate, scale_factor=sf)
-                    down_sample = Resizer(img_H_tensor.shape, 1 / sf).to(device)
-                    img_L = down_sample(img_H_tensor)
-                    img_L = img_L.cpu().numpy()  # [0,1]
-                    img_L = np.squeeze(img_L)
-                    if img_L.ndim == 3:
-                        img_L = np.transpose(img_L, (1, 2, 0))
+                if not is_low_resolution:
+                    if sr_mode == 'blur':
+                        if classical_degradation:
+                            img_L = sr.classical_degradation(img_H, k, sf)
+                            util.imshow(img_L) if show_img else None
+                            img_L = util.uint2single(img_L)
+                        else:
+                            img_L = util.imresize_np(util.uint2single(img_H), 1 / sf)
+                    elif sr_mode == 'cubic':
+                        img_H_tensor = np.transpose(img_H, (2, 0, 1))
+                        img_H_tensor = torch.from_numpy(img_H_tensor)[None, :, :, :].to(device)
+                        img_H_tensor = img_H_tensor / 255
+                        # set up resizers
+                        up_sample = partial(F.interpolate, scale_factor=sf)
+                        down_sample = Resizer(img_H_tensor.shape, 1 / sf).to(device)
+                        img_L = down_sample(img_H_tensor)
+                        img_L = img_L.cpu().numpy()  # [0,1]
+                        img_L = np.squeeze(img_L)
+                        if img_L.ndim == 3:
+                            img_L = np.transpose(img_L, (1, 2, 0))
+                else:
+                    img_L = util.imread_uint(img, n_channels=n_channels)
+                    img_L = util.modcrop(img_L, sf)
+                    img_L = util.uint2single(img_L)
 
                 np.random.seed(seed=0)  # for reproducibility
                 img_L = img_L * 2 - 1
@@ -453,8 +458,8 @@ def sr_service_demo(
 
                 img_E = util.tensor2uint(x_0)
 
-                psnr = util.calculate_psnr(img_E, img_H, border=border)
-                test_results['psnr'].append(psnr)
+                # psnr = util.calculate_psnr(img_E, img_H, border=border)
+                # test_results['psnr'].append(psnr)
 
                 if calc_LPIPS:
                     img_H_tensor = np.transpose(img_H, (2, 0, 1))
@@ -464,13 +469,13 @@ def sr_service_demo(
                     lpips_score = lpips_score.cpu().detach().numpy()[0][0][0][0]
                     test_results['lpips'].append(lpips_score)
                     logger.info(
-                        '{:>10s} -- sf:{:>1d} --k:{:>2d} PSNR: {:.4f}dB LPIPS: {:.4f} ave LPIPS: {:.4f}'.format(
-                            img_name + ext, sf, k_index, psnr, lpips_score,
+                        '{:>10s} -- sf:{:>1d} --k:{:>2d}  LPIPS: {:.4f} ave LPIPS: {:.4f}'.format(
+                            img_name + ext, sf, k_index, lpips_score,
                             sum(test_results['lpips']) / len(test_results['lpips'])))
                 else:
                     logger.info(
-                        '{:>10s} -- sf:{:>1d} --k:{:>2d} PSNR: {:.4f}dB'.format(img_name + ext,
-                                                                                           sf, k_index, psnr))
+                        '{:>10s} -- sf:{:>1d} --k:{:>2d} '.format(img_name + ext,
+                                                                                           sf, k_index))
 
                 if save_E:
                     estimated_path = os.path.join(E_path, img_name + '_x' + str(sf) + '_k' + str(
@@ -489,8 +494,8 @@ def sr_service_demo(
                         util.imshow(img_total, figsize=(80, 4))
 
                     process_path = os.path.join(E_path,
-                                                img_name + '_sigma_{:.3f}_process_lambda_{:.3f}_{}_psnr_{:.4f}{}'.format(
-                                                                   noise_level_img, lambda_, current_time, psnr,
+                                                img_name + '_sigma_{:.3f}_process_lambda_{:.3f}_{}_{}'.format(
+                                                                   noise_level_img, lambda_, current_time,
                                                                    ext))
                     util.imsave(img_total * 255., process_path)
                     path_to_return['process'] = process_path
@@ -501,22 +506,22 @@ def sr_service_demo(
 
                 img_L = util.single2uint(img_L).squeeze()
 
-                if save_LEH:
-                    k_v = k / np.max(k) * 1.0
-                    if n_channels == 1:
-                        k_v = util.single2uint(k_v)
-                    else:
-                        k_v = util.single2uint(np.tile(k_v[..., np.newaxis], [1, 1, n_channels]))
-                    k_v = cv2.resize(k_v, (3 * k_v.shape[1], 3 * k_v.shape[0]), interpolation=cv2.INTER_NEAREST)
-                    img_I = cv2.resize(img_L, (sf * img_L.shape[1], sf * img_L.shape[0]),
-                                       interpolation=cv2.INTER_NEAREST)
-                    img_I[:k_v.shape[0], -k_v.shape[1]:, ...] = k_v
-                    img_I[:img_L.shape[0], :img_L.shape[1], ...] = img_L
-                    util.imshow(np.concatenate([img_I, img_E, img_H], axis=1),
-                                title='LR / Recovered / Ground-truth') if show_img else None
-                    leh_path = os.path.join(E_path, img_name + '_x' + str(sf) + '_k' + str(k_index) + '_LEH' + ext)
-                    util.imsave(np.concatenate([img_I, img_E, img_H], axis=1), leh_path)
-                    path_to_return['leh'] = leh_path
+                # if save_LEH:
+                #     k_v = k / np.max(k) * 1.0
+                #     if n_channels == 1:
+                #         k_v = util.single2uint(k_v)
+                #     else:
+                #         k_v = util.single2uint(np.tile(k_v[..., np.newaxis], [1, 1, n_channels]))
+                #     k_v = cv2.resize(k_v, (3 * k_v.shape[1], 3 * k_v.shape[0]), interpolation=cv2.INTER_NEAREST)
+                #     img_I = cv2.resize(img_L, (sf * img_L.shape[1], sf * img_L.shape[0]),
+                #                        interpolation=cv2.INTER_NEAREST)
+                #     img_I[:k_v.shape[0], -k_v.shape[1]:, ...] = k_v
+                #     img_I[:img_L.shape[0], :img_L.shape[1], ...] = img_L
+                #     util.imshow(np.concatenate([img_I, img_E, img_H], axis=1),
+                #                 title='LR / Recovered / Ground-truth') if show_img else None
+                #     leh_path = os.path.join(E_path, img_name + '_x' + str(sf) + '_k' + str(k_index) + '_LEH' + ext)
+                #     util.imsave(np.concatenate([img_I, img_E, img_H], axis=1), leh_path)
+                #     path_to_return['leh'] = leh_path
 
                 if save_L:
                     low_path = os.path.join(E_path, img_name + '_x' + str(sf) + '_k' + str(k_index) + '_LR' + ext)
@@ -526,25 +531,13 @@ def sr_service_demo(
                 if n_channels == 3:
                     img_E_y = util.rgb2ycbcr(img_E, only_y=True)
                     img_H_y = util.rgb2ycbcr(img_H, only_y=True)
-                    psnr_y = util.calculate_psnr(img_E_y, img_H_y, border=border)
-                    test_results['psnr_y'].append(psnr_y)
+                    # psnr_y = util.calculate_psnr(img_E_y, img_H_y, border=border)
+                    # test_results['psnr_y'].append(psnr_y)
 
                 # --------------------------------
                 # Average PSNR and LPIPS for all images
                 # --------------------------------
 
-                ave_psnr_k = sum(test_results['psnr']) / len(test_results['psnr'])
-                logger.info(
-                    '------> Average PSNR(RGB) of ({}) scale factor: ({}), kernel: ({}) sigma: ({:.3f}): {:.4f} dB'.format(
-                        input_image_path, sf, k_index, noise_level_model, ave_psnr_k))
-                test_results_ave['psnr_sf_k'].append(ave_psnr_k)
-
-                if n_channels == 3:  # RGB image
-                    ave_psnr_y_k = sum(test_results['psnr_y']) / len(test_results['psnr_y'])
-                    logger.info(
-                        '------> Average PSNR(Y) of ({}) scale factor: ({}), kernel: ({}) sigma: ({:.3f}): {:.4f} dB'.format(
-                            input_image_path, sf, k_index, noise_level_model, ave_psnr_y_k))
-                    test_results_ave['psnr_y_sf_k'].append(ave_psnr_y_k)
 
                 if calc_LPIPS:
                     ave_lpips_k = sum(test_results['lpips']) / len(test_results['lpips'])
@@ -562,21 +555,9 @@ def sr_service_demo(
                 for zeta_i in [0.25]:
                     test_results_ave = test_rho(lambda_, zeta=zeta_i, model_output_type=model_output_type)
 
-    # ---------------------------------------
-    # Average PSNR and LPIPS for all sf and kernels
-    # ---------------------------------------
-
-    ave_psnr_sf_k = sum(test_results_ave['psnr_sf_k']) / len(test_results_ave['psnr_sf_k'])
-    logger.info('------> Average PSNR of ({}) {:.4f} dB'.format(input_image_path, ave_psnr_sf_k))
-    if n_channels == 3:
-        ave_psnr_y_sf_k = sum(test_results_ave['psnr_y_sf_k']) / len(test_results_ave['psnr_y_sf_k'])
-        logger.info('------> Average PSNR-Y of ({}) {:.4f} dB'.format(input_image_path, ave_psnr_y_sf_k))
-    if calc_LPIPS:
-        ave_lpips_sf_k = sum(test_results_ave['lpips']) / len(test_results_ave['lpips'])
-        logger.info('------> Average LPIPS of ({}) {:.4f}'.format(input_image_path, ave_lpips_sf_k))
 
     return path_to_return
 
 if __name__ == '__main__':
-    result_path = sr_service_demo()
+    result_path = sr_service()
     print(result_path)

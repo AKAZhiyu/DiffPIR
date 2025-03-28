@@ -21,9 +21,10 @@ from guided_diffusion.script_util import (
 )
 
 
-def inpaint_service_demo(mask_type='random',
-                         input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/mingrui.png',
-                         output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results'):
+def inpaint_service(mask_type='box',
+                    input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/mingrui.png',
+                    mask_path='/Users/zhiyuzhang/Downloads/DiffPIR/masks/centered_mask.png',
+                    output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results'):
 
     path_to_return = {}
 
@@ -41,10 +42,10 @@ def inpaint_service_demo(mask_type='random',
     skip = num_train_timesteps // iter_num  # skip interval
 
     mask_name = 'gt_keep_masks/face/000000.png'  # mask path for loading mask img
-    load_mask = False
+    # load_mask = False
     # mask_type = 'box'  # ['box', 'random', 'both', 'extreme']
     # mask_len_range          = [128, 129]
-    mask_len_range = [128, 129]
+    mask_len_range = [64, 65]
     mask_prob_range = [0.5, 0.5]
 
     show_img = True  # default: False
@@ -181,8 +182,9 @@ def inpaint_service_demo(mask_type='random',
         # --------------------------------
         # (2) initialize x
         # --------------------------------
-        if load_mask:
-            mask = util.imread_uint(mask_path, n_channels=n_channels).astype(bool)
+        if mask_path is not None:
+            mask = util.imread_uint(mask_path, n_channels=n_channels)
+            mask = (mask > 0).astype(bool)
         else:
             mask_gen = mask_generator(mask_type=mask_type, mask_len_range=mask_len_range,
                                       mask_prob_range=mask_prob_range)
@@ -190,6 +192,7 @@ def inpaint_service_demo(mask_type='random',
             mask = mask_gen(util.uint2tensor4(img_H)).numpy()
             mask = np.squeeze(mask)
             mask = np.transpose(mask, (1, 2, 0))
+            mask = mask.astype(bool)
 
         img_L = img_H * mask / 255.  # (256,256,3)         [0,1]
 
@@ -448,5 +451,5 @@ def inpaint_service_demo(mask_type='random',
 
 
 if __name__ == '__main__':
-    result_path = inpaint_service_demo()
+    result_path = inpaint_service()
     print(result_path)
