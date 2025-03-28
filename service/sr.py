@@ -48,7 +48,7 @@ def sr_service(
     skip = num_train_timesteps // iter_num  # skip interval
     sr_mode = 'blur'  # 'blur', 'cubic' mode of sr up/down sampling
 
-    show_img = True  # default: False
+    show_img = False  # default: False
     save_L = True  # save LR image
     save_E = True  # save estimated image
     save_LEH = True  # save zoomed LR, E and H images

@@ -47,7 +47,7 @@ def inpaint_service_demo(mask_type='random',
     mask_len_range = [128, 129]
     mask_prob_range = [0.5, 0.5]
 
-    show_img = True  # default: False
+    show_img = False  # default: False
     save_L = True  # save LR image
     save_E = True  # save estimated image
     save_LEH = True  # save zoomed LR, E and H images

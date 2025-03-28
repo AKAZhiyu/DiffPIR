@@ -22,8 +22,8 @@ from guided_diffusion.script_util import (
 
 
 def inpaint_service(mask_type='box',
-                    input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/mingrui.png',
-                    mask_path='/Users/zhiyuzhang/Downloads/DiffPIR/masks/centered_mask.png',
+                    input_image_path='/Users/zhiyuzhang/Downloads/DiffPIR/testsets/demo_test/69133.png',
+                    mask_path='/Users/zhiyuzhang/Downloads/DiffPIR/masks/granular_mask.png',
                     output_path='/Users/zhiyuzhang/Downloads/DiffPIR/results'):
 
     path_to_return = {}
@@ -48,7 +48,7 @@ def inpaint_service(mask_type='box',
     mask_len_range = [64, 65]
     mask_prob_range = [0.5, 0.5]
 
-    show_img = True  # default: False
+    show_img = False  # default: False
     save_L = True  # save LR image
     save_E = True  # save estimated image
     save_LEH = True  # save zoomed LR, E and H images

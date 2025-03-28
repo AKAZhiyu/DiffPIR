@@ -45,7 +45,7 @@ def deblur_service_demo(
     iter_num_U = 1  # set number of inner iterations, default: 1
     skip = num_train_timesteps // iter_num  # skip interval
 
-    show_img = True  # default: False
+    show_img = False  # default: False
     save_L = True  # save LR image
     save_E = True  # save estimated image
     save_LEH = True  # save zoomed LR, E and H images
