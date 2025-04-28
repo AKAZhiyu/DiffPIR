@@ -527,4 +527,4 @@ def deblur_service(
 
 if __name__ == '__main__':
     result_path = deblur_service()
-    print(result_path)
+    # print(result_path)

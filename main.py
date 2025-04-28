@@ -1,5 +1,7 @@
 from typing import Union
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 
@@ -21,6 +23,16 @@ if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.mount("/output", StaticFiles(directory=OUTPUT_DIR), name="output")
 
 # 原始路由保留
 @app.get("/")
